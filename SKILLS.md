@@ -42,6 +42,14 @@ This file defines the capabilities of the MF Analyser project for AI coding assi
 - **Compare Returns**: multi-fund CAGR and Risk (Max DD) table.
     - `mf_analyser.analysis.comparison.compare_returns(scheme_codes, ...)`
 
+## Fund Holdings Analysis
+- **Fetch Holdings**: Detailed stock-level portfolios via Groww.
+    - `mf_analyser.data.cache.get_holdings(scheme_code)`
+- **Portfolio Diff**: Detect stock additions, exits, and weight shifts.
+    - `mf_analyser.analysis.holdings.analyze_changes(old, new)`
+- **Sector Allocation**: Aggregate portfolio exposure by sector.
+    - `mf_analyser.analysis.holdings.get_sector_allocation(data)`
+
 ## CLI Usage
 The `mfa` command provides a rich terminal interface for all the above.
 Run `uv run mfa --help` for full details.

@@ -433,6 +433,142 @@ def cache_list():
     rprint(f"\n[dim]Total cached schemes: {len(codes)}[/dim]")
 
 
+# ─── Holdings analysis ────────────────────────────────────────────────────────
+
+@app.command("holdings")
+def holdings_cmd(
+    query: str = typer.Argument(..., help="Scheme code or name"),
+    refresh: bool = typer.Option(False, "--refresh", help="Force refresh holdings from Groww"),
+    slug: Optional[str] = typer.Option(None, "--slug", help="Custom Groww slug if mapping is missing"),
+):
+    """
+    Display current portfolio holdings and sector allocation.
+    """
+    from mf_analyser.data.cache import get_holdings, search_cached_schemes
+    from mf_analyser.analysis.holdings import get_top_holdings, get_sector_allocation
+
+    # Resolve scheme code
+    scheme_code = query
+    if not query.isdigit():
+        results = search_cached_schemes(query, top_n=1)
+        if results.empty:
+            rprint(f"[red]No scheme found matching '{query}'.[/red]")
+            raise typer.Exit(1)
+        scheme_code = results.iloc[0]["scheme_code"]
+    
+    fund_name = FUND_CODE_TO_NAME.get(scheme_code, f"Scheme {scheme_code}")
+
+    try:
+        data = get_holdings(scheme_code, force_refresh=refresh, slug=slug)
+    except Exception as e:
+        rprint(f"[red]Error fetching holdings: {str(e)}[/red]")
+        if "No Groww slug mapping" in str(e):
+            rprint("\n[yellow]Tip: Use --slug to provide the Groww URL slug for this fund.[/yellow]")
+        raise typer.Exit(1)
+
+    rprint(f"\n[bold cyan]{fund_name}[/bold cyan]")
+    rprint(f"[dim]As of: {data.get('as_of_date', 'Unknown')} | Total Holdings: {data['total_holdings']}[/dim]\n")
+
+    # Top Holdings Table
+    top_h = get_top_holdings(data, top_n=15)
+    h_table = Table(title="Top 15 Holdings", show_lines=True)
+    h_table.add_column("Stock/Instrument", style="bold white")
+    h_table.add_column("Sector", style="dim")
+    h_table.add_column("Weight (%)", justify="right", style="green")
+
+    for h in top_h:
+        h_table.add_row(
+            h["name"],
+            h["sector"],
+            f"{h['weightage']:.2f}%"
+        )
+    console.print(h_table)
+
+    # Sector Allocation Table
+    sector_df = get_sector_allocation(data)
+    s_table = Table(title="Sector Allocation", show_lines=True)
+    s_table.add_column("Sector", style="magenta")
+    s_table.add_column("Allocation (%)", justify="right")
+
+    for _, row in sector_df.iterrows():
+        s_table.add_row(row["sector"], f"{row['weightage']:.2f}%")
+    console.print(s_table)
+
+
+@app.command("holdings-diff")
+def holdings_diff_cmd(
+    query: str = typer.Argument(..., help="Scheme code or name"),
+):
+    """
+    Shows changes in holdings compared to the previous cached snapshot.
+    Note: Requires at least two cached snapshots for this scheme.
+    """
+    import json
+    from mf_analyser.data.cache import search_cached_schemes
+    from mf_analyser.analysis.holdings import get_snapshot_history, analyze_changes
+
+    scheme_code = query
+    if not query.isdigit():
+        results = search_cached_schemes(query, top_n=1)
+        if results.empty:
+            rprint(f"[red]No scheme found matching '{query}'.[/red]")
+            raise typer.Exit(1)
+        scheme_code = results.iloc[0]["scheme_code"]
+
+    history = get_snapshot_history(scheme_code)
+    if len(history) < 2:
+        rprint(f"[yellow]Need at least 2 historical snapshots for comparison. Currently have {len(history)}.[/yellow]")
+        rprint("[dim]Historical snapshots are created automatically every time you run 'mfa holdings --refresh' on a new month.[/dim]")
+        return
+
+    # Load latest and second-latest
+    with open(history[-1], "r") as f:
+        new_data = json.load(f)
+    with open(history[-2], "r") as f:
+        old_data = json.load(f)
+
+    rprint(f"\n[bold cyan]Portfolio Changes for {FUND_CODE_TO_NAME.get(scheme_code, scheme_code)}[/bold cyan]")
+    rprint(f"[dim]Comparing {old_data.get('as_of_date', 'Past')} vs {new_data.get('as_of_date', 'Latest')}[/dim]\n")
+
+    changes = analyze_changes(old_data, new_data)
+
+    # Added Table
+    if changes["added"]:
+        added_t = Table(title="New Additions", show_lines=False, border_style="green")
+        added_t.add_column("Stock", style="green")
+        added_t.add_column("Weight", justify="right")
+        for item in changes["added"]:
+            added_t.add_row(item["name"], f"{item['weight']:.2f}%")
+        console.print(added_t)
+
+    # Exited Table
+    if changes["exited"]:
+        exited_t = Table(title="Fully Exited", show_lines=False, border_style="red")
+        exited_t.add_column("Stock", style="red")
+        exited_t.add_column("Former Weight", justify="right")
+        for item in changes["exited"]:
+            exited_t.add_row(item["name"], f"{item['weight']:.2f}%")
+        console.print(exited_t)
+
+    # Increased/Decreased
+    if changes["increased"] or changes["decreased"]:
+        shift_t = Table(title="Significant Weightage Shifts (>0.01%)", show_lines=True)
+        shift_t.add_column("Stock")
+        shift_t.add_column("Change", justify="right")
+        shift_t.add_column("New Weight", justify="right")
+
+        for item in changes["increased"][:10]: # Top 10 increases
+            shift_t.add_row(item["name"], f"[green]+{item['diff']:.2f}%[/green]", f"{item['new_weight']:.2f}%")
+        
+        if changes["increased"] and changes["decreased"]:
+            shift_t.add_section()
+
+        for item in changes["decreased"][:10]: # Top 10 decreases
+            shift_t.add_row(item["name"], f"[red]{item['diff']:.2f}%[/red]", f"{item['new_weight']:.2f}%")
+        
+        console.print(shift_t)
+
+
 @cache_app.command("clear")
 def cache_clear(
     scheme_code: Optional[str] = typer.Argument(None, help="Scheme code to clear (omit to clear all)"),

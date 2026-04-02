@@ -11,12 +11,14 @@ ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = ROOT_DIR / "data"
 NAV_CACHE_DIR = DATA_DIR / "nav"
 AUM_CACHE_DIR = DATA_DIR / "aum"
+HOLDINGS_CACHE_DIR = DATA_DIR / "holdings"
 SCHEME_LIST_CACHE = DATA_DIR / "scheme_codes.csv"
 
 # ─── Cache TTL ────────────────────────────────────────────────────────────────
 NAV_CACHE_TTL_HOURS = 24        # Refresh NAV CSV if older than this many hours
 SCHEME_LIST_TTL_DAYS = 7        # Refresh scheme list weekly
 AUM_CACHE_TTL_DAYS = 90         # AUM is quarterly; rarely changes
+HOLDINGS_CACHE_TTL_DAYS = 30    # Portfolios are updated monthly
 
 # ─── Default fund universe ────────────────────────────────────────────────────
 # Scheme codes are for the Direct Growth variant of each fund.
@@ -91,4 +93,19 @@ FUND_NAME_TO_CODE: dict[str, str] = {
 
 FUND_CODE_TO_NAME: dict[str, str] = {
     info["scheme_code"]: name for name, info in DEFAULT_FUNDS.items()
+}
+
+# ─── Groww Slugs for Default Funds ────────────────────────────────────────────
+# Mapping AMFI scheme code to Groww URL slug for authentic portfolio data
+AMFI_TO_GROWW_MAPPING: dict[str, str] = {
+    "118989": "mirae-asset-large-cap-fund-direct-growth",
+    "122639": "parag-parikh-long-term-value-fund-direct-growth",
+    "120586": "icici-prudential-bluechip-fund-direct-plan-growth",
+    "118825": "nippon-india-multi-cap-fund-direct-growth",
+    "120465": "kotak-midcap-direct-plan-growth",
+    "118731": "hdfc-small-cap-fund-direct-growth",
+    "118778": "nippon-india-small-cap-fund-direct-growth",
+    "120716": "uti-nifty-index-fund-direct-growth",
+    "120684": "uti-nifty-next-50-index-fund-direct-growth",
+    "120620": "icici-prudential-nifty-bank-index-fund-direct-growth",
 }

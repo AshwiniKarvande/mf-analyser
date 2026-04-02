@@ -14,6 +14,7 @@
 | 📉 Drawdown | Maximum drawdown + recovery analysis |
 | 🤖 Strategies | SIP, Lump Sum, Value Averaging, Momentum (MA crossover), SIP+Stop-Loss |
 | 📊 Comparison | Automatic peer discovery and performance ranking within category |
+| 📁 Holdings | Portfolio snapshots, stock-level diffs, and sector-wise distribution |
 | 🏦 AUM Tracking | Quarter-over-quarter AUM trends, sub-scheme split (Direct/Regular, Growth/IDCW) |
 | 💾 CSV Cache | Local cache reduces redundant network calls (auto-refreshes after 24h) |
 | 🖥️ CLI | Rich terminal output via `mfa` command |
@@ -46,11 +47,14 @@ uv run mfa search "mirae large cap"
 # View returns for a fund (all trailing periods)
 uv run mfa returns 118989
 
-# View returns with custom date range, rolling summary, and drawdown
-uv run mfa returns 122639 --from-date 2019-01-01 --rolling --drawdown
-
 # Compare a fund with its top 5 category peers
 uv run mfa compare 122639 --limit 5
+
+# View portfolio holdings and sector allocation
+uv run mfa holdings 122639
+
+# View portfolio changes (requires 2+ cached snapshots)
+uv run mfa holdings-diff 122639
 
 # Run a SIP backtest (5000/month from Jan 2019)
 uv run mfa strategy sip 118989 --amount 5000 --from-date 2019-01-01
@@ -90,6 +94,7 @@ Open:
 - `02_strategy_backtest.ipynb` — Compare all strategies side-by-side
 - `03_aum_analysis.ipynb` — AUM trend across quarters, sub-scheme breakdown
 - `04_peer_comparison.ipynb` — Automatic category discovery and rival analysis
+- `05_holdings_analysis.ipynb` — Portfolio concentration and sector allocation
 
 ---
 
@@ -120,11 +125,13 @@ mf-analyser/
 │   ├── config.py          # Paths, cache TTL, default fund universe
 │   ├── data/
 │   │   ├── fetcher.py     # mftool wrapper
-│   │   └── cache.py       # CSV read/write cache
+│   │   ├── holdings_fetcher.py # Groww portfolio scraper
+│   │   └── cache.py       # JSON/CSV read/write cache
 │   ├── analysis/
 │   │   ├── returns.py     # Returns calculation
 │   │   ├── strategies.py  # Strategy backtesting
-│   │   └── comparison.py  # Peer discovery and ranking
+│   │   ├── comparison.py  # Peer discovery and ranking
+│   │   └── holdings.py    # Portfolio analysis and tracking
 │   ├── aum/
 │   │   └── tracker.py     # AUM trend analysis
 │   └── cli.py             # Typer CLI (mfa command)
@@ -158,7 +165,7 @@ All data is fetched from [AMFI India](https://www.amfiindia.com/) via the [`mfto
 
 ## Roadmap
 
-- [ ] Fund holding changes over time
+- [x] Fund holding changes over time
 - [ ] AUM changes at sub-scheme level (Direct/Regular, Growth/IDCW)
 - [x] Peer comparison across funds in same category
 - [ ] Web dashboard (Streamlit or Dash)

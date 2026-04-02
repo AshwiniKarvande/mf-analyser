@@ -24,6 +24,8 @@ from mf_analyser.config import (
     NAV_CACHE_TTL_HOURS,
     SCHEME_LIST_CACHE,
     SCHEME_LIST_TTL_DAYS,
+    HOLDINGS_CACHE_DIR,
+    HOLDINGS_CACHE_TTL_DAYS
 )
 from mf_analyser.data.fetcher import (
     FetchError,
@@ -31,6 +33,8 @@ from mf_analyser.data.fetcher import (
     fetch_nav_history,
     get_all_scheme_codes,
 )
+import json
+from mf_analyser.data.holdings_fetcher import fetch_holdings as _fetch_holdings_from_groww
 
 logger = logging.getLogger(__name__)
 
@@ -155,3 +159,54 @@ def search_cached_schemes(query: str, top_n: int = 20) -> pd.DataFrame:
     df = get_scheme_list()
     mask = df["scheme_name"].str.contains(query, case=False, na=False)
     return df[mask].head(top_n).reset_index(drop=True)
+
+
+# ─── Holdings cache ──────────────────────────────────────────────────────────
+
+def get_holdings(scheme_code: str | int, force_refresh: bool = False, slug: str | None = None) -> dict:
+    """
+    Get portfolio holdings for a scheme. Reads from local JSON cache if fresh.
+    
+    Args:
+        scheme_code:    AMFI scheme code
+        force_refresh:  bypass cache TTL
+        slug:           optional custom Groww slug
+    """
+    _ensure_dir(HOLDINGS_CACHE_DIR)
+    code = str(scheme_code)
+    # We store multiple files with dates to allow history, but 'latest' for quick access
+    # Actually, for simpler caching, use code.json
+    cache_path = HOLDINGS_CACHE_DIR / f"{code}.json"
+    ttl_hours = HOLDINGS_CACHE_TTL_DAYS * 24
+
+    stale = force_refresh or _is_stale(cache_path, ttl_hours)
+
+    if not stale:
+        logger.debug("Cache hit for holdings of scheme %s", code)
+        with open(cache_path, "r") as f:
+            return json.load(f)
+
+    logger.info("Fetching holdings for scheme %s from Groww…", code)
+    try:
+        data = _fetch_holdings_from_groww(code, slug=slug)
+        # Add a fetch timestamp
+        data["fetched_at"] = datetime.now().isoformat()
+        
+        with open(cache_path, "w") as f:
+            json.dump(data, f, indent=4)
+        
+        # Also store a historical copy: code_YYYYMMDD.json
+        date_str = datetime.now().strftime("%Y%m%d")
+        hist_path = HOLDINGS_CACHE_DIR / f"{code}_{date_str}.json"
+        with open(hist_path, "w") as f:
+            json.dump(data, f, indent=4)
+            
+        logger.info("Cached holdings records → %s", cache_path)
+        return data
+    except Exception as e:
+        logger.error("Failed to fetch holdings for %s: %s", code, str(e))
+        if cache_path.exists():
+            logger.warning("Returning stale holdings cache due to fetch error.")
+            with open(cache_path, "r") as f:
+                return json.load(f)
+        raise
