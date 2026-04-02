@@ -36,6 +36,12 @@ This file defines the capabilities of the MF Analyser project for AI coding assi
 - **Sub-scheme Analysis**: Split AUM by Direct/Regular and Growth/IDCW.
     - `mf_analyser.aum.tracker.subscheme_aum_split(df, base_name)`
 
+## Peer Comparison
+- **Discover Peers**: Find top rivals in the same category.
+    - `mf_analyser.analysis.comparison.discover_peers(scheme_code, limit=5)`
+- **Compare Returns**: multi-fund CAGR and Risk (Max DD) table.
+    - `mf_analyser.analysis.comparison.compare_returns(scheme_codes, ...)`
+
 ## CLI Usage
 The `mfa` command provides a rich terminal interface for all the above.
 Run `uv run mfa --help` for full details.

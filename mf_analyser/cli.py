@@ -22,6 +22,7 @@ from datetime import date
 from typing import Optional
 
 import typer
+import pandas as pd
 from rich import print as rprint
 from rich.console import Console
 from rich.table import Table
@@ -342,6 +343,70 @@ def aum_cmd(
 
     console.print(df.to_string(index=False))
     rprint(f"\n[dim]Showing {len(df)} rows for quarter: {quarter}[/dim]")
+
+
+# ─── comparison ───────────────────────────────────────────────────────────────
+
+@app.command("compare")
+def compare_cmd(
+    scheme_code: str = typer.Argument(..., help="AMFI scheme code of the target fund"),
+    limit: int = typer.Option(5, "--limit", "-l", help="Number of peers to compare"),
+    refresh: bool = typer.Option(False, "--refresh", "-r", help="Force refresh NAV cache"),
+):
+    """Compare a fund against its top category peers (Direct-Growth variants)."""
+    from mf_analyser.analysis.comparison import discover_peers, compare_returns
+    from mf_analyser.config import FUND_CODE_TO_NAME
+
+    fund_label = FUND_CODE_TO_NAME.get(scheme_code, f"Scheme {scheme_code}")
+
+    with console.status(f"Discovering peers for [cyan]{fund_label}[/cyan]…"):
+        peers = discover_peers(scheme_code, limit=limit)
+
+    peer_codes = [scheme_code] + [p[0] for p in peers]
+    peer_names = {scheme_code: fund_label}
+    for p_code, p_name in peers:
+        peer_names[p_code] = p_name
+
+    with console.status(f"Computing comparison for {len(peer_codes)} funds…"):
+        # periods are default ["1Y", "3Y", "5Y", "10Y"]
+        df = compare_returns(peer_codes)
+
+    if df.empty:
+        rprint("[red]Could not compute comparison metrics.[/red]")
+        raise typer.Exit(1)
+
+    # Add names to DF
+    df["fund_name"] = df["scheme_code"].map(peer_names)
+
+    table = Table(title=f"Peer Comparison: {fund_label}", show_lines=True)
+    table.add_column("Fund Name", style="bold cyan")
+    table.add_column("1Y CAGR", justify="right")
+    table.add_column("3Y CAGR", justify="right")
+    table.add_column("5Y CAGR", justify="right")
+    table.add_column("10Y CAGR", justify="right")
+    table.add_column("Max DD", justify="right", style="red")
+
+    # Sort by 3Y CAGR descending if available, else 1Y
+    sort_col = "3Y_cagr_pct" if "3Y_cagr_pct" in df.columns else "1Y_cagr_pct"
+    df = df.sort_values(sort_col, ascending=False, na_position="last")
+
+    for _, row in df.iterrows():
+        display_name = row["fund_name"]
+        if row["scheme_code"] == scheme_code:
+            display_name = f"[bold reverse]{display_name}[/bold reverse]"
+
+        table.add_row(
+            display_name,
+            _fmt_pct(row["1Y_cagr_pct"]) if pd.notnull(row["1Y_cagr_pct"]) else "–",
+            _fmt_pct(row["3Y_cagr_pct"]) if pd.notnull(row["3Y_cagr_pct"]) else "–",
+            _fmt_pct(row["5Y_cagr_pct"]) if pd.notnull(row["5Y_cagr_pct"]) else "–",
+            _fmt_pct(row["10Y_cagr_pct"]) if pd.notnull(row.get("10Y_cagr_pct")) else "–",
+            _fmt_pct(row["max_drawdown_pct"]),
+        )
+
+    console.print(table)
+    rprint(f"\n[dim]* Comparisons are restricted to [bold]Direct Plan - Growth[/bold] variants.[/dim]")
+    rprint(f"[dim]* Peer discovery based on category keyword search.[/dim]")
 
 
 # ─── cache management ─────────────────────────────────────────────────────────

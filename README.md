@@ -13,6 +13,7 @@
 | 🔄 Rolling Returns | 1Y/3Y/5Y rolling CAGR distribution (min/median/max) |
 | 📉 Drawdown | Maximum drawdown + recovery analysis |
 | 🤖 Strategies | SIP, Lump Sum, Value Averaging, Momentum (MA crossover), SIP+Stop-Loss |
+| 📊 Comparison | Automatic peer discovery and performance ranking within category |
 | 🏦 AUM Tracking | Quarter-over-quarter AUM trends, sub-scheme split (Direct/Regular, Growth/IDCW) |
 | 💾 CSV Cache | Local cache reduces redundant network calls (auto-refreshes after 24h) |
 | 🖥️ CLI | Rich terminal output via `mfa` command |
@@ -46,7 +47,10 @@ uv run mfa search "mirae large cap"
 uv run mfa returns 118989
 
 # View returns with custom date range, rolling summary, and drawdown
-uv run mfa returns 118989 --from-date 2019-01-01 --rolling --drawdown
+uv run mfa returns 122639 --from-date 2019-01-01 --rolling --drawdown
+
+# Compare a fund with its top 5 category peers
+uv run mfa compare 122639 --limit 5
 
 # Run a SIP backtest (5000/month from Jan 2019)
 uv run mfa strategy sip 118989 --amount 5000 --from-date 2019-01-01
@@ -85,6 +89,7 @@ Open:
 - `01_nav_returns.ipynb` — NAV charts, returns table, rolling CAGR
 - `02_strategy_backtest.ipynb` — Compare all strategies side-by-side
 - `03_aum_analysis.ipynb` — AUM trend across quarters, sub-scheme breakdown
+- `04_peer_comparison.ipynb` — Automatic category discovery and rival analysis
 
 ---
 
@@ -118,7 +123,8 @@ mf-analyser/
 │   │   └── cache.py       # CSV read/write cache
 │   ├── analysis/
 │   │   ├── returns.py     # Returns calculation
-│   │   └── strategies.py  # Strategy backtesting
+│   │   ├── strategies.py  # Strategy backtesting
+│   │   └── comparison.py  # Peer discovery and ranking
 │   ├── aum/
 │   │   └── tracker.py     # AUM trend analysis
 │   └── cli.py             # Typer CLI (mfa command)
@@ -154,5 +160,5 @@ All data is fetched from [AMFI India](https://www.amfiindia.com/) via the [`mfto
 
 - [ ] Fund holding changes over time
 - [ ] AUM changes at sub-scheme level (Direct/Regular, Growth/IDCW)
-- [ ] Peer comparison across funds in same category
+- [x] Peer comparison across funds in same category
 - [ ] Web dashboard (Streamlit or Dash)
