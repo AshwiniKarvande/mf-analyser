@@ -15,7 +15,7 @@
 | 🤖 Strategies | SIP, Lump Sum, Value Averaging, Momentum (MA crossover), SIP+Stop-Loss |
 | 📊 Comparison | Automatic peer discovery and performance ranking within category |
 | 📁 Holdings | Portfolio snapshots, stock-level diffs, and sector-wise distribution |
-| 🏦 AUM Tracking | Fetch industry-wide AUM rankings, sorted high-to-low (in ₹ Crores) with Rich Tables |
+| 🏦 AUM Tracking | Fetch industry-wide AUM rankings and [bold]quarterly growth trends[/bold] (2011-Present) |
 | 💾 CSV Cache | Local cache reduces redundant network calls (auto-refreshes after 24h) |
 | 🖥️ CLI | Rich terminal output via `mfa` command |
 | 📓 Notebooks | Interactive Jupyter notebooks with Plotly charts |
@@ -79,6 +79,9 @@ uv run mfa aum "Jan-Mar 2024" --scheme "Mirae"
 
 # Fetch Top 10 largest fund families in India (Combined AUM)
 uv run mfa aum "Jan-Mar 2024" --combine --top 10
+
+# Track AUM growth of a fund over the years (2011 to Present)
+uv run mfa aum-trend "Parag Parikh Flexi Cap" --start 2013
 
 # Fetch with custom limit and variants combined
 uv run mfa aum "Jan-Mar 2024" --scheme "PPFAS" -n 50 --combine

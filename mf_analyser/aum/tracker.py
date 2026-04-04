@@ -20,21 +20,29 @@ logger = logging.getLogger(__name__)
 
 # ─── Standard quarters helper ─────────────────────────────────────────────────
 
-def generate_quarters(start_year: int = 2020, end_year: int | None = None) -> list[str]:
+def generate_quarters(start_year: int = 2011, end_year: int | None = None) -> list[str]:
     """
     Generate a list of quarter strings from start_year to end_year (inclusive).
 
     Format: "Jan-Mar 2020", "Apr-Jun 2020", "Jul-Sep 2020", "Oct-Dec 2020"
     """
     import datetime
+    today = datetime.date.today()
     if end_year is None:
-        end_year = datetime.date.today().year
+        end_year = today.year
 
-    labels = {1: "Jan-Mar", 2: "Apr-Jun", 3: "Jul-Sep", 4: "Oct-Dec"}
+    # Mapping of start month of quarter to label
+    # 1: Jan-Mar, 4: Apr-Jun, 7: Jul-Sep, 10: Oct-Dec
+    labels = {1: "Jan-Mar", 4: "Apr-Jun", 7: "Jul-Sep", 10: "Oct-Dec"}
     quarters = []
+    
     for year in range(start_year, end_year + 1):
-        for q, label in labels.items():
-            quarters.append(f"{label} {year}")
+        for start_month, label in labels.items():
+            # A quarter is only fully available AFTER it ends.
+            # E.g. Jan-Mar (1-3) is available in April (4).
+            end_month = start_month + 2
+            if year < today.year or (year == today.year and today.month > end_month):
+                quarters.append(f"{label} {year}")
     return quarters
 
 
@@ -120,37 +128,55 @@ def _sort_by_quarter(df: pd.DataFrame) -> pd.DataFrame:
 
 def scheme_aum_trend(
     scheme_name_query: str,
-    start_year: int = 2020,
+    start_year: int = 2011,
     end_year: int | None = None,
+    combine: bool = True,
     force_refresh: bool = False,
 ) -> pd.DataFrame:
     """
-    Build AUM time series for a specific scheme (matched by name substring).
+    Build AUM time series for a specific fund family (combined) or scheme.
 
-    Returns a DataFrame with columns: quarter, scheme_name, aum_cr
-    One row per quarter where data is available.
+    Args:
+        scheme_name_query:  Fund name substring (e.g. "Parag Parikh Flexi")
+        start_year:         Starting year for trend
+        end_year:           End year for trend
+        combine:            If True, groups all variants (Direct/Regular) into one figure.
+        force_refresh:      Bypass cache
+
+    Returns:
+        DataFrame with columns: quarter, scheme_name, aum_cr
+        One row per quarter where data is available.
     """
-    quarters = generate_quarters(start_year, end_year)
+    from mf_analyser.cli import _normalize_fund_name
+
+    # Fetch one extra year before start_year to provide a growth baseline
+    # for the first displayed quarter (if cache allows).
+    fetch_start = max(2011, start_year - 1)
+    quarters = generate_quarters(fetch_start, end_year)
     ts = build_aum_timeseries(
         quarters,
         scheme_filter=scheme_name_query,
         force_refresh=force_refresh,
     )
+    
+    # We store the intended display start_year in the dataframe metadata
+    # or just rely on the CLI filtering it. The caller will filter.
 
     if ts.empty:
         return ts
 
-    # Normalise column names
-    scheme_col = _find_col(ts, "scheme_name") or _find_col(ts, "scheme")
-    aum_col = _find_col(ts, "aum")
+    if combine:
+        # Group by quarter and normalized fund family name
+        ts["fund_family"] = ts["scheme_name"].apply(_normalize_fund_name)
+        # We also group by AMC to ensure we don't merge identical names across different AMCs
+        ts = ts.groupby(["quarter", "amc", "fund_family"])["aum_cr"].sum().reset_index()
+        # Pick the normalized name for display
+        ts.rename(columns={"fund_family": "scheme_name"}, inplace=True)
+    else:
+        # If not combining, keep individual scheme name AND code
+        ts = ts.groupby(["quarter", "amc", "scheme_name", "scheme_code"])["aum_cr"].sum().reset_index()
 
-    keep = ["quarter"]
-    if scheme_col:
-        keep.append(scheme_col)
-    if aum_col:
-        keep.append(aum_col)
-
-    ts = ts[keep].drop_duplicates()
+    ts = _sort_by_quarter(ts)
     return ts
 
 
@@ -158,7 +184,7 @@ def scheme_aum_trend(
 
 def aum_growth_summary(aum_ts: pd.DataFrame, aum_col: str = "aum_cr") -> pd.DataFrame:
     """
-    Compute quarter-over-quarter AUM changes.
+    Compute quarter-over-quarter AUM changes per scheme.
 
     Adds columns:
       - aum_qoq_change_cr  (absolute change in crores)
@@ -168,8 +194,15 @@ def aum_growth_summary(aum_ts: pd.DataFrame, aum_col: str = "aum_cr") -> pd.Data
     if aum_col not in df.columns:
         return df
 
-    df["aum_qoq_change_cr"] = df[aum_col].diff()
-    df["aum_qoq_pct"] = df[aum_col].pct_change() * 100
+    # Identifiers for a unique fund series
+    group_cols = ["amc", "scheme_name"]
+    if "scheme_code" in df.columns:
+        group_cols.append("scheme_code")
+
+    # Group by fund/scheme and calculate differences on the sorted time series
+    # (ts should already be sorted by quarter via _sort_by_quarter)
+    df["aum_qoq_change_cr"] = df.groupby(group_cols)[aum_col].diff()
+    df["aum_qoq_pct"] = df.groupby(group_cols)[aum_col].pct_change() * 100
     df["aum_qoq_pct"] = df["aum_qoq_pct"].round(2)
     return df
 

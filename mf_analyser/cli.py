@@ -408,6 +408,97 @@ def aum_cmd(
     rprint(f"\n[dim]Showing top {len(df)} schemes by AUM for quarter: {quarter}[/dim]")
 
 
+@app.command("aum-trend")
+def aum_trend_cmd(
+    query: str = typer.Argument(..., help="Scheme name substring to track"),
+    start_year: int = typer.Option(2011, "--start", help="Start year for trend analysis"),
+    end_year: Optional[int] = typer.Option(None, "--end", help="End year for trend analysis"),
+    combine: bool = typer.Option(True, "--combine/--no-combine", help="Combine all fund variants into one trend"),
+    refresh: bool = typer.Option(False, "--refresh", help="Force refresh AUM data"),
+):
+    """Display AUM growth trend and QoQ changes for a fund."""
+    from mf_analyser.aum.tracker import scheme_aum_trend, aum_growth_summary
+
+    with console.status(f"Analysing AUM trend for [cyan]{query}[/cyan]…"):
+        ts = scheme_aum_trend(
+            query,
+            start_year=start_year,
+            end_year=end_year,
+            combine=combine,
+            force_refresh=refresh,
+        )
+
+    if ts.empty:
+        rprint(f"[red]No AUM data found for '{query}' in the selected period.[/red]")
+        raise typer.Exit(1)
+
+    # Calculate growth metrics (scheme-aware)
+    ts = aum_growth_summary(ts)
+
+    # Filter out the extra baseline quarters used for calculation
+    # so we only display the range starting from start_year.
+    ts["_year"] = ts["quarter"].apply(lambda q: int(q.split()[-1]))
+    ts = ts[ts["_year"] >= start_year].drop(columns=["_year"])
+
+    # Sort by quarter primarily, then by fund/scheme name
+    # We do this unconditionally so multiple funds in a query result are grouped by quarter
+    from mf_analyser.aum.tracker import _quarter_sort_key
+    ts["_q_sort"] = ts["quarter"].map(_quarter_sort_key)
+    ts = ts.sort_values(["_q_sort", "amc", "scheme_name"]).drop(columns=["_q_sort"])
+
+    fund_name = query
+    amc_name = ts["amc"].iloc[0] if "amc" in ts.columns else "Unknown AMC"
+
+    title = f"AUM Trend: {fund_name} ({amc_name})"
+    if combine:
+        title += " [Combined]"
+    
+    table = Table(title=title, show_lines=True)
+    table.add_column("Quarter", style="cyan")
+    table.add_column("Fund/Scheme", style="bold white")
+    if not combine:
+        table.add_column("Code", style="dim yellow")
+        
+    table.add_column("AAUM (Cr)", justify="right", style="magenta")
+    table.add_column("QoQ Change (Cr)", justify="right")
+    table.add_column("QoQ %", justify="right")
+
+    last_q = None
+    for _, row in ts.iterrows():
+        # Add a section separator if the quarter changes
+        current_q = row.get("quarter")
+        if last_q is not None and current_q != last_q:
+            table.add_section()
+        last_q = current_q
+
+        change_val = row.get("aum_qoq_change_cr", 0)
+        pct_val = row.get("aum_qoq_pct", 0)
+
+        change_str = f"₹{change_val:,.2f} Cr" if pd.notnull(change_val) else "–"
+        if pd.notnull(change_val):
+            change_str = f"[green]+{change_str}[/green]" if change_val > 0 else f"[red]{change_str}[/red]"
+        
+        pct_str = _fmt_pct(pct_val) if pd.notnull(pct_val) else "–"
+
+        row_data = [
+            row["quarter"],
+            row["scheme_name"],
+        ]
+        if not combine:
+            row_data.append(str(row.get("scheme_code", "–")))
+            
+        row_data.extend([
+            f"₹{row['aum_cr']:,.2f} Cr",
+            change_str,
+            pct_str
+        ])
+        
+        table.add_row(*row_data)
+
+    console.print(table)
+    rprint(f"\n[dim]Analysis based on {len(ts)} quarters of data.[/dim]")
+
+
 # ─── comparison ───────────────────────────────────────────────────────────────
 
 @app.command("compare")
