@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from datetime import date
 from typing import Optional
@@ -45,6 +46,39 @@ logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def _normalize_fund_name(name: str) -> str:
+    """
+    Remove Plan (Direct/Regular) and Option (Growth/IDCW) from scheme names.
+    This helps group sub-schemes of the same fund.
+    """
+    if not name:
+        return ""
+    # Suffixes to strip (case insensitive)
+    # We strip from the last occurrence of common separators
+    pats = [
+        r"\s*-\s*Direct Plan.*", r"\s*-\s*Regular Plan.*",
+        r"\s*-\s*DIRECT PLAN.*", r"\s*-\s*REGULAR PLAN.*",
+        r"\s*-\s*Growth.*", r"\s*-\s*IDCW.*",
+        r"\s*-\s*GROWTH.*", r"\s*-\s*Plan\s+Growth.*",
+        r"\s*Plan\s*Growth.*", r"\s*Plan\s*IDCW.*",
+        r"\s*FUND-REGULAR.*", r"\s*FUND-DIRECT.*",
+        r"\s*-DIRECT\s*PLAN.*", r"\s*-REGULAR\s*PLAN.*",
+        r"\s*-\s*Direct.*", r"\s*-\s*Regular.*",
+        r"\s*\(\s*Direct\s*\).*", r"\s*\(\s*Regular\s*\).*",
+        r"\s+Direct\s+Plan.*", r"\s+Regular\s+Plan.*",
+    ]
+    norm = name
+    for p in pats:
+        new_norm = re.sub(p, "", norm, flags=re.I).strip()
+        if new_norm != norm:
+            norm = new_norm
+            break # Stop at the first major plan/option match
+    
+    # Strip trailing " Fund" if it's orphaned, for better deduplication
+    norm = re.sub(r"\s+Fund$", "", norm, flags=re.I).strip()
+    return norm
+
 
 def _fmt_pct(v: float) -> str:
     color = "green" if v >= 0 else "red"
@@ -319,6 +353,7 @@ def aum_cmd(
     amc: Optional[str] = typer.Option(None, "--amc", help="Filter by AMC name"),
     top: int = typer.Option(20, "--top", "-n"),
     refresh: bool = typer.Option(False, "--refresh"),
+    combine: bool = typer.Option(False, "--combine", help="Combine AUM of all variants (Direct, Regular, etc.) into 1 fund"),
 ):
     """Fetch and display AUM data for a quarter."""
     from mf_analyser.data.cache import get_aum
@@ -336,6 +371,16 @@ def aum_cmd(
         if col:
             df = df[df[col].str.contains(amc, case=False, na=False)]
 
+    if combine:
+        df["fund_family"] = df["scheme_name"].apply(_normalize_fund_name)
+        # Group by AMC and normalized name
+        df = df.groupby(["amc", "fund_family"]).agg({
+            "aum_cr": "sum",
+            "scheme_code": lambda x: f"{len(x)} variants", # Just show count for codes
+        }).reset_index()
+        # Rename for consistency in table loop
+        df.rename(columns={"fund_family": "scheme_name"}, inplace=True)
+    
     # Sort by AUM (Cr) Descending before truncation
     df = df.sort_values("aum_cr", ascending=False)
     df = df.head(top)
@@ -344,10 +389,11 @@ def aum_cmd(
         rprint("[red]No results matching filters.[/red]")
         raise typer.Exit(1)
 
-    table = Table(title=f"Top {top} AAUM Schemes: {quarter}", show_lines=True)
+    title_prefix = "Top" if not combine else "Combined Top"
+    table = Table(title=f"{title_prefix} {top} AAUM Schemes: {quarter}", show_lines=True)
     table.add_column("AMC", style="green")
     table.add_column("Scheme Name", style="bold cyan")
-    table.add_column("Scheme Code", style="yellow", justify="center")
+    table.add_column("Codes" if combine else "Scheme Code", style="yellow", justify="center")
     table.add_column("AUM (Cr)", justify="right", style="magenta")
 
     for _, row in df.iterrows():

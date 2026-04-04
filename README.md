@@ -77,8 +77,11 @@ uv run mfa aum "Jan-Mar 2024" --top 10
 # Fetch Top 20 schemes for a specific partner/AMC
 uv run mfa aum "Jan-Mar 2024" --scheme "Mirae"
 
-# Fetch with custom limit
-uv run mfa aum "Jan-Mar 2024" --scheme "PPFAS" -n 50
+# Fetch Top 10 largest fund families in India (Combined AUM)
+uv run mfa aum "Jan-Mar 2024" --combine --top 10
+
+# Fetch with custom limit and variants combined
+uv run mfa aum "Jan-Mar 2024" --scheme "PPFAS" -n 50 --combine
 
 # Cache management
 uv run mfa cache list
