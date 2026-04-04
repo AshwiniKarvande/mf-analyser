@@ -8,10 +8,12 @@ Network errors raise FetchError so callers can handle gracefully.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 from urllib.error import URLError
 
 import pandas as pd
+import requests
 from mftool import Mftool
 
 logger = logging.getLogger(__name__)
@@ -123,34 +125,121 @@ def fetch_scheme_quote(scheme_code: str | int) -> dict[str, Any]:
     return dict(quote or {})
 
 
-# ─── AUM ──────────────────────────────────────────────────────────────────────
+# ─── New AUM API Constants ──────────────────────────────────────────────────
+
+AMC_IDS = [
+    3, 53, 1, 4, 59, 46, 32, 6, 47, 54, 27, 9, 37, 20, 57, 48, 68, 62, 65, 63,
+    42, 70, 16, 17, 56, 18, 69, 45, 55, 21, 58, 64, 10, 13, 35, 22, 66, 33, 25,
+    26, 61, 28, 71
+]
+
+AUM_API_URL = "https://www.amfiindia.com/api/average-aum-schemewise"
+
+
+def _map_quarter_to_amfi_params(quarter: str) -> tuple[int, int]:
+    """
+    Map quarter string to AMFI's fyId and periodId.
+    Example: 'Jan-Mar 2024' -> (3, 1)
+
+    fyId mapping:
+    1: 2025-2026
+    2: 2024-2025
+    3: 2023-2024 (ends March 2024)
+
+    periodId mapping:
+    1: Jan - March
+    2: Oct - December
+    3: July - September
+    4: April - June
+    """
+    match = re.search(r"(Jan|Apr|Jul|Oct).*(?:\s|-)([23][0-9]{3})", quarter, re.I)
+    if not match:
+        raise FetchError(f"Invalid quarter format: {quarter!r}. Expected e.g. 'Jan-Mar 2024'")
+
+    month_shorthand = match.group(1).lower()
+    year = int(match.group(2))
+
+    # Financial Year Logic
+    # Jan-Mar 2024 belongs to FY 2023-24
+    if month_shorthand == "jan":
+        fy_year = year - 1
+        period_id = 1
+    elif month_shorthand == "oct":
+        fy_year = year
+        period_id = 2
+    elif month_shorthand == "jul":
+        fy_year = year
+        period_id = 3
+    elif month_shorthand == "apr":
+        fy_year = year
+        period_id = 4
+    else:
+        raise FetchError(f"Could not map quarter months: {quarter}")
+
+    # fyId mapping relative to base 2025 (fyId=1)
+    fy_id = 2025 - fy_year + 1
+    if fy_id < 1:
+        # If it's a future year, we still try 1
+        fy_id = 1
+
+    return fy_id, period_id
+
 
 def fetch_average_aum(quarter: str) -> pd.DataFrame:
     """
-    Fetch average AUM data for a given quarter.
+    Fetch average AUM data for a given quarter using the new AMFI REST API.
 
-    quarter format: "Jan-Mar 2024", "Apr-Jun 2024", "Jul-Sep 2024", "Oct-Dec 2024"
+    quarter format: "Jan-Mar 2024", "Apr-Jun 2024", etc.
 
     Returns a DataFrame with columns:
       amc, scheme_name, scheme_code, aum_cr (AUM in crores)
     """
-    try:
-        data = _mf.get_average_aum(quarter, as_json=False)
-    except (URLError, Exception) as exc:
-        raise FetchError(f"Failed to fetch AUM for quarter {quarter!r}: {exc}") from exc
+    fy_id, period_id = _map_quarter_to_amfi_params(quarter)
+    all_data = []
 
-    if not data:
-        raise FetchError(f"No AUM data returned for quarter {quarter!r}")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    }
 
-    # mftool returns a list of dicts
-    df = pd.DataFrame(data)
-    df.columns = [c.lower().strip().replace(" ", "_") for c in df.columns]
+    logger.info("Fetching AUM for quarter %s (fyId=%d, periodId=%d)", quarter, fy_id, period_id)
 
-    # Normalise common column patterns
-    aum_col = next((c for c in df.columns if "aum" in c), None)
-    if aum_col:
-        df.rename(columns={aum_col: "aum_cr"}, inplace=True)
-        df["aum_cr"] = pd.to_numeric(df["aum_cr"], errors="coerce")
+    # We iterate through known AMC IDs as the API requires MF_ID
+    for mf_id in AMC_IDS:
+        params = {
+            "strType": "Typewise",
+            "fyId": fy_id,
+            "periodId": period_id,
+            "MF_ID": mf_id
+        }
+        try:
+            r = requests.get(AUM_API_URL, params=params, headers=headers, timeout=10)
+            if r.status_code != 200:
+                logger.warning("Failed to fetch AUM for MF_ID=%d (Status=%d)", mf_id, r.status_code)
+                continue
 
-    df["quarter"] = quarter
-    return df
+            resp = r.json()
+            data_list = resp.get("data", [])
+            if not data_list:
+                continue
+
+            amc_name = data_list[0].get("Mfname", "Unknown")
+            for record in data_list:
+                for scheme in record.get("schemes", []):
+                    aum_val = scheme.get("AverageAumForTheMonth", {}).get(
+                        "ExcludingFundOfFundsDomesticButIncludingFundOfFundsOverseas", 0
+                    )
+                    all_data.append({
+                        "amc": amc_name,
+                        "scheme_name": scheme.get("SchemeNAVName"),
+                        "scheme_code": str(scheme.get("AMFI_Code")),
+                        "aum_cr": float(aum_val) / 100.0,  # Lakhs to Crores
+                        "quarter": quarter
+                    })
+
+        except Exception as exc:
+            logger.error("Error fetching AUM for MF_ID=%d: %s", mf_id, exc)
+
+    if not all_data:
+        raise FetchError(f"No AUM data returned for quarter {quarter!r} from AMFI API")
+
+    return pd.DataFrame(all_data)

@@ -15,7 +15,7 @@
 | 🤖 Strategies | SIP, Lump Sum, Value Averaging, Momentum (MA crossover), SIP+Stop-Loss |
 | 📊 Comparison | Automatic peer discovery and performance ranking within category |
 | 📁 Holdings | Portfolio snapshots, stock-level diffs, and sector-wise distribution |
-| 🏦 AUM Tracking | Quarter-over-quarter AUM trends, sub-scheme split (Direct/Regular, Growth/IDCW) |
+| 🏦 AUM Tracking | Fetch industry-wide AUM rankings, sorted high-to-low (in ₹ Crores) with Rich Tables |
 | 💾 CSV Cache | Local cache reduces redundant network calls (auto-refreshes after 24h) |
 | 🖥️ CLI | Rich terminal output via `mfa` command |
 | 📓 Notebooks | Interactive Jupyter notebooks with Plotly charts |
@@ -71,8 +71,14 @@ uv run mfa strategy momentum 118989 --amount 100000 --fast 50 --slow 200
 # SIP with 20% stop-loss
 uv run mfa strategy stoploss 118989 --amount 5000 --stop-loss 20
 
-# Fetch AUM for a quarter
+# Fetch Top 10 largest mutual fund schemes in India
+uv run mfa aum "Jan-Mar 2024" --top 10
+
+# Fetch Top 20 schemes for a specific partner/AMC
 uv run mfa aum "Jan-Mar 2024" --scheme "Mirae"
+
+# Fetch with custom limit
+uv run mfa aum "Jan-Mar 2024" --scheme "PPFAS" -n 50
 
 # Cache management
 uv run mfa cache list
@@ -159,13 +165,16 @@ uv run ruff check . --fix
 
 ## Data Source
 
-All data is fetched from [AMFI India](https://www.amfiindia.com/) via the [`mftool`](https://pypi.org/project/mftool/) package. Accuracy depends on AMFI data availability.
+All data is fetched from [AMFI India](https://www.amfiindia.com/). 
+- **NAV Data**: Fetched via the [`mftool`](https://pypi.org/project/mftool/) package.
+- **AUM Data**: Fetched directly from the official AMFI REST API for improved reliability and coverage.
+- **Holdings**: Scraped from Groww portfolio mirrors.
 
 ---
 
 ## Roadmap
 
 - [x] Fund holding changes over time
-- [ ] AUM changes at sub-scheme level (Direct/Regular, Growth/IDCW)
+- [x] AUM rankings and scheme-level tracking (Direct/Regular, Growth/IDCW)
 - [x] Peer comparison across funds in same category
 - [ ] Web dashboard (Streamlit or Dash)

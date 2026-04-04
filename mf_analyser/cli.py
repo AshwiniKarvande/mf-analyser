@@ -336,13 +336,30 @@ def aum_cmd(
         if col:
             df = df[df[col].str.contains(amc, case=False, na=False)]
 
+    # Sort by AUM (Cr) Descending before truncation
+    df = df.sort_values("aum_cr", ascending=False)
     df = df.head(top)
+
     if df.empty:
         rprint("[red]No results matching filters.[/red]")
         raise typer.Exit(1)
 
-    console.print(df.to_string(index=False))
-    rprint(f"\n[dim]Showing {len(df)} rows for quarter: {quarter}[/dim]")
+    table = Table(title=f"Top {top} AAUM Schemes: {quarter}", show_lines=True)
+    table.add_column("AMC", style="green")
+    table.add_column("Scheme Name", style="bold cyan")
+    table.add_column("Scheme Code", style="yellow", justify="center")
+    table.add_column("AUM (Cr)", justify="right", style="magenta")
+
+    for _, row in df.iterrows():
+        table.add_row(
+            str(row["amc"]),
+            str(row["scheme_name"]),
+            str(row["scheme_code"]),
+            f"₹{row['aum_cr']:,.2f} Cr"
+        )
+
+    console.print(table)
+    rprint(f"\n[dim]Showing top {len(df)} schemes by AUM for quarter: {quarter}[/dim]")
 
 
 # ─── comparison ───────────────────────────────────────────────────────────────
