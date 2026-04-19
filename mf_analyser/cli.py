@@ -744,6 +744,36 @@ def cache_clear(
         raise typer.Exit(1)
 
 
+# ─── Dashboard Integration ────────────────────────────────────────────────────
+
+@app.command("ui")
+def ui_dashboard():
+    """Launch the comprehensive interactive Web Dashboard."""
+    import subprocess
+    from pathlib import Path
+    
+    try:
+        import streamlit
+    except ImportError:
+        rprint("[red]Streamlit is not installed![/red]")
+        rprint("[dim]Please install web dependencies using: [yellow]uv sync --extra web[/yellow][/dim]")
+        raise typer.Exit(1)
+        
+    dashboard_path = Path("dashboard/app.py")
+    if not dashboard_path.exists():
+        rprint(f"[red]Dashboard entrypoint not found at {dashboard_path}[/red]")
+        raise typer.Exit(1)
+        
+    rprint("[bold cyan]Launching MF Analyser Web Dashboard...[/bold cyan]")
+    try:
+        # Use sys.executable to ensure it runs in the same uv/poetry virtual environment
+        subprocess.run([sys.executable, "-m", "streamlit", "run", str(dashboard_path)])
+    except KeyboardInterrupt:
+        rprint("\n[dim]Dashboard closed.[/dim]")
+    except Exception as e:
+        rprint(f"[red]Failed to launch dashboard: {e}[/red]")
+
+
 # ─── Entry point ──────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

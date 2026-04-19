@@ -100,12 +100,12 @@ FUND_CODE_TO_NAME: dict[str, str] = {
 AMFI_TO_GROWW_MAPPING: dict[str, str] = {
     "118825": "mirae-asset-large-cap-fund-direct-growth",
     "122639": "parag-parikh-long-term-value-fund-direct-growth",
-    "120586": "icici-prudential-bluechip-fund-direct-plan-growth",
+    "120586": "icici-prudential-large-cap-fund-direct-growth",
     "118650": "nippon-india-multi-cap-fund-direct-growth",
-    "119775": "kotak-midcap-direct-plan-growth",
+    "119775": "kotak-midcap-fund-direct-growth",
     "130503": "hdfc-small-cap-fund-direct-growth",
     "118778": "nippon-india-small-cap-fund-direct-growth",
-    "120716": "uti-nifty-index-fund-direct-growth",
+    "120716": "uti-nifty-50-index-fund-direct-growth",
     "143341": "uti-nifty-next-50-index-fund-direct-growth",
     "149858": "icici-prudential-nifty-bank-index-fund-direct-growth",
 }

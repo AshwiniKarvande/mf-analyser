@@ -78,7 +78,7 @@ def discover_peers(scheme_code: str | int, limit: int = 5) -> list[tuple[str, st
 
 def compare_returns(
     scheme_codes: list[str],
-    periods: list[str] = ["1Y", "3Y", "5Y", "10Y"],
+    periods: list[str] = ["1Y", "2Y", "3Y", "5Y", "7Y", "10Y"],
 ) -> pd.DataFrame:
     """
     Compare performance metrics for a list of fund codes.
@@ -106,8 +106,10 @@ def compare_returns(
 
             period_map = {
                 "1Y": 365,
+                "2Y": 730,
                 "3Y": 1095,
                 "5Y": 1825,
+                "7Y": 2555,
                 "10Y": 3652,
             }
 

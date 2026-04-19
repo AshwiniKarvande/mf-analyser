@@ -33,3 +33,4 @@ Whenever you make project changes (such as adding new features, modifying APIs, 
 - `SKILLS.md`
 - Jupyter notebooks in the `notebooks/` directory
 - Test cases in the `tests/` directory
+- The CLI commands and help text in `mf_analyser/cli.py`

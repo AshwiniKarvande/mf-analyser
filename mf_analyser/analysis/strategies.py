@@ -529,6 +529,131 @@ def sip_with_stop_loss(
     )
 
 
+# ─── 6. SIP + Buy on Dip ────────────────────────────────────────────────────────
+
+def sip_buy_on_dip(
+    df: pd.DataFrame,
+    monthly_amount: float,
+    dip_drop_pct: float = 5.0,
+    subsequent_dip_drop_pct: float = 2.0,
+    dip_multiplier: float = 1.0,
+    cooldown_days: int = 15,
+    start_date: date | str | None = None,
+    end_date: date | str | None = None,
+    sip_day: int = 1,
+) -> StrategyResult:
+    """
+    Standard SIP, with additional "Buy on Dip" whenever NAV falls by 'dip_drop_pct' 
+    from its highest peak. Incorporates subsequent dip triggers to average down if the
+    market continues to drop.
+
+    Args:
+        monthly_amount: ₹ per month
+        dip_drop_pct:   % drop from peak to trigger first dip buy
+        subsequent_dip_drop_pct: % drop from the last dip buy NAV to trigger another buy
+        dip_multiplier: Extra investment factor (e.g., 2.0 = double the SIP amount)
+        cooldown_days:  Minimum days between two consecutive dip buys
+    """
+    data = _filter_date_range(df, start_date, end_date)
+    if data.empty:
+        raise ValueError("No NAV data in the given date range")
+
+    total_units = 0.0
+    total_invested = 0.0
+    peak_nav = 0.0
+    last_dip_date = pd.Timestamp("1970-01-01")
+    last_dip_nav: float | None = None
+    records = []
+
+    last_sip_period = None
+    
+    for _, row in data.iterrows():
+        current_nav = float(row["nav"])
+        current_date = row["date"]
+        
+        current_period = current_date.to_period("M")
+        is_sip_day = False
+        
+        if current_period != last_sip_period:
+            if current_date.day >= min(sip_day, 28):
+                is_sip_day = True
+                
+        if is_sip_day:
+            units_bought = monthly_amount / current_nav
+            total_units += units_bought
+            total_invested += monthly_amount
+            records.append({
+                "date": current_date.date(), "type": "SIP-BUY",
+                "nav": round(current_nav, 4), "units": round(units_bought, 4),
+                "amount": round(monthly_amount, 2),
+                "cumulative_units": round(total_units, 4), "note": "Regular SIP"
+            })
+            last_sip_period = current_period
+            
+        if current_nav > peak_nav:
+            peak_nav = current_nav
+            last_dip_nav = None  # Reset the dip buying cycle when a new all-time high is reached
+        
+        if peak_nav > 0:
+            days_since_last_dip = (current_date - last_dip_date).days
+            if days_since_last_dip >= cooldown_days:
+                dip_triggered = False
+                note = ""
+                
+                if last_dip_nav is None:
+                    # Looking for the first dip from the peak
+                    drawdown = (peak_nav - current_nav) / peak_nav * 100
+                    if drawdown >= dip_drop_pct:
+                        dip_triggered = True
+                        note = f"Drop {drawdown:.1f}% from Peak"
+                else:
+                    # Looking for subsequent dips from the PREVIOUS dip buy point
+                    drawdown = (last_dip_nav - current_nav) / last_dip_nav * 100
+                    if drawdown >= subsequent_dip_drop_pct:
+                        dip_triggered = True
+                        note = f"Drop {drawdown:.1f}% from Prev Buy"
+
+                if dip_triggered:
+                    dip_amount = monthly_amount * dip_multiplier
+                    units_bought = dip_amount / current_nav
+                    total_units += units_bought
+                    total_invested += dip_amount
+                    records.append({
+                        "date": current_date.date(), "type": "DIP-BUY",
+                        "nav": round(current_nav, 4), "units": round(units_bought, 4),
+                        "amount": round(dip_amount, 2),
+                        "cumulative_units": round(total_units, 4),
+                        "note": note
+                    })
+                    last_dip_date = current_date
+                    last_dip_nav = current_nav
+
+    final_nav = float(data.iloc[-1]["nav"])
+    final_value = total_units * final_nav
+    
+    txns = pd.DataFrame(records)
+    if txns.empty:
+        raise ValueError("No transactions could be placed in the given date range")
+        
+    start_d = txns.iloc[0]["date"]
+    end_d = data.iloc[-1]["date"].date()
+    days = (pd.Timestamp(end_d) - pd.Timestamp(start_d)).days
+    abs_ret = (final_value - total_invested) / total_invested * 100 if total_invested > 0 else 0
+
+    return StrategyResult(
+        strategy_name=f"SIP + Buy on Dip ({dip_drop_pct}%)",
+        start_date=start_d,
+        end_date=end_d,
+        total_invested=round(total_invested, 2),
+        final_value=round(final_value, 2),
+        total_units=round(total_units, 4),
+        final_nav=round(final_nav, 4),
+        absolute_return_pct=round(abs_ret, 2),
+        cagr_pct=_compute_cagr(total_invested, final_value, days),
+        years=round(days / 365.25, 2),
+        transactions=txns,
+    )
+
 # ─── Strategy comparison helper ───────────────────────────────────────────────
 
 def compare_strategies(results: list[StrategyResult]) -> pd.DataFrame:

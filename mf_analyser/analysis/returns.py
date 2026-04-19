@@ -254,3 +254,48 @@ def max_drawdown(df: pd.DataFrame) -> dict:
         "drawdown_pct": dd_pct,
         "recovery_date": recovery_date,
     }
+
+def top_drawdowns(df: pd.DataFrame, top_n: int = 10) -> pd.DataFrame:
+    """
+    Find the top N non-overlapping drawdown periods by tracking distinct high-water marks.
+    """
+    df = df.copy().sort_values("date").reset_index(drop=True)
+    df["rolling_max"] = df["nav"].cummax()
+    
+    records = []
+    for r_max, group in df.groupby("rolling_max"):
+        if len(group) <= 1:
+            continue
+            
+        peak_date = group["date"].iloc[0].date()
+        peak_nav = r_max
+        
+        trough_idx = group["nav"].idxmin()
+        trough_row = group.loc[trough_idx]
+        trough_date = trough_row["date"].date()
+        trough_nav = trough_row["nav"]
+        
+        dd_pct = (trough_nav - peak_nav) / peak_nav * 100
+        if dd_pct >= 0:
+            continue
+            
+        last_idx = group.index[-1]
+        recovery_date = "Not Recovered"
+        if last_idx + 1 < len(df):
+            recovery_date = str(df.loc[last_idx + 1, "date"].date())
+            
+        records.append({
+            "Drawdown (%)": round(dd_pct, 2),
+            "Peak Date": str(peak_date),
+            "Trough Date": str(trough_date),
+            "Recovery Date": recovery_date,
+            "Days to Trough": (trough_date - peak_date).days
+        })
+        
+    res_df = pd.DataFrame(records)
+    if res_df.empty:
+        return res_df
+        
+    res_df = res_df.sort_values("Drawdown (%)", ascending=True).head(top_n).reset_index(drop=True)
+    res_df.index = range(1, len(res_df) + 1)
+    return res_df

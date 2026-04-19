@@ -108,6 +108,16 @@ Open:
 - `04_peer_comparison.ipynb` — Automatic category discovery and rival analysis
 - `05_holdings_analysis.ipynb` — Portfolio concentration and sector allocation
 
+### 4. Run Web Dashboard
+
+```bash
+# First, update dependencies with the 'web' extra
+uv sync --extra web
+
+# Run the dashboard app locally via the unified CLI
+uv run mfa ui
+```
+
 ---
 
 ## Default Funds
