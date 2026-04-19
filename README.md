@@ -143,6 +143,10 @@ uv run mfa ui
 
 ```
 mf-analyser/
+├── dashboard/             # Interactive Streamlit Web UI
+│   ├── app.py             # Main router & entrypoint
+│   ├── components.py      # Reusable core UI elements
+│   └── pages/             # Individual dashboard screen modules
 ├── mf_analyser/
 │   ├── config.py          # Paths, cache TTL, default fund universe
 │   ├── data/
@@ -158,7 +162,7 @@ mf-analyser/
 │   │   └── tracker.py     # AUM trend analysis
 │   └── cli.py             # Typer CLI (mfa command)
 ├── notebooks/             # Jupyter notebooks
-├── data/                  # Local CSV cache (git-ignored)
+├── data/                  # Local CSV/JSON cache (git-ignored)
 └── tests/                 # pytest test suite
 ```
 
@@ -193,4 +197,7 @@ All data is fetched from [AMFI India](https://www.amfiindia.com/).
 - [x] Fund holding changes over time
 - [x] AUM rankings and scheme-level tracking (Direct/Regular, Growth/IDCW)
 - [x] Peer comparison across funds in same category
-- [ ] Web dashboard (Streamlit or Dash)
+- [x] Interactive Web dashboard (`uv run mfa ui`) featuring multipage analysis and Plotly visuals
+- [ ] Automated notification reports for tracking target stop-loss hits or SIP/Value-Averaging executions
+- [ ] Taxation analysis overlays (LTCG / STCG estimations natively in the backtester)
+- [ ] Multi-fund custom basket creation for aggregated portfolio backtesting
