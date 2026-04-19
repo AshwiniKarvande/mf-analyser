@@ -25,7 +25,7 @@ HOLDINGS_CACHE_TTL_DAYS = 30    # Portfolios are updated monthly
 # Use `mfa search <name>` to find/confirm the scheme code for any fund.
 DEFAULT_FUNDS: dict[str, dict] = {
     "Mirae Asset Large Cap Fund": {
-        "scheme_code": "118989",
+        "scheme_code": "118825",
         "category": "Large Cap",
         "amc": "Mirae Asset",
         "tags": ["large-cap", "equity"],
@@ -43,19 +43,19 @@ DEFAULT_FUNDS: dict[str, dict] = {
         "tags": ["large-cap", "equity"],
     },
     "Nippon Multi-Cap Fund": {
-        "scheme_code": "118825",
+        "scheme_code": "118650",
         "category": "Multi Cap",
         "amc": "Nippon India",
         "tags": ["multi-cap", "equity"],
     },
     "Kotak Midcap Fund": {
-        "scheme_code": "120465",
+        "scheme_code": "119775",
         "category": "Mid Cap",
         "amc": "Kotak",
         "tags": ["mid-cap", "equity"],
     },
     "HDFC Small Cap Fund": {
-        "scheme_code": "118731",
+        "scheme_code": "130503",
         "category": "Small Cap",
         "amc": "HDFC",
         "tags": ["small-cap", "equity"],
@@ -73,13 +73,13 @@ DEFAULT_FUNDS: dict[str, dict] = {
         "tags": ["index", "nifty-50", "passive"],
     },
     "UTI Nifty Next 50 Index Fund": {
-        "scheme_code": "120684",
+        "scheme_code": "143341",
         "category": "Index Fund",
         "amc": "UTI",
         "tags": ["index", "nifty-next-50", "passive"],
     },
     "ICICI Pru Nifty Bank Index Fund": {
-        "scheme_code": "120620",
+        "scheme_code": "149858",
         "category": "Index Fund",
         "amc": "ICICI Prudential",
         "tags": ["index", "banking", "passive", "sectoral"],
@@ -98,14 +98,14 @@ FUND_CODE_TO_NAME: dict[str, str] = {
 # ─── Groww Slugs for Default Funds ────────────────────────────────────────────
 # Mapping AMFI scheme code to Groww URL slug for authentic portfolio data
 AMFI_TO_GROWW_MAPPING: dict[str, str] = {
-    "118989": "mirae-asset-large-cap-fund-direct-growth",
+    "118825": "mirae-asset-large-cap-fund-direct-growth",
     "122639": "parag-parikh-long-term-value-fund-direct-growth",
     "120586": "icici-prudential-bluechip-fund-direct-plan-growth",
-    "118825": "nippon-india-multi-cap-fund-direct-growth",
-    "120465": "kotak-midcap-direct-plan-growth",
-    "118731": "hdfc-small-cap-fund-direct-growth",
+    "118650": "nippon-india-multi-cap-fund-direct-growth",
+    "119775": "kotak-midcap-direct-plan-growth",
+    "130503": "hdfc-small-cap-fund-direct-growth",
     "118778": "nippon-india-small-cap-fund-direct-growth",
     "120716": "uti-nifty-index-fund-direct-growth",
-    "120684": "uti-nifty-next-50-index-fund-direct-growth",
-    "120620": "icici-prudential-nifty-bank-index-fund-direct-growth",
+    "143341": "uti-nifty-next-50-index-fund-direct-growth",
+    "149858": "icici-prudential-nifty-bank-index-fund-direct-growth",
 }

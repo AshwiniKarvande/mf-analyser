@@ -26,3 +26,10 @@ The project follows a modular functional approach:
 - `data/`: Local storage for cached CSVs (git-ignored).
 - `notebooks/`: Jupyter analysis samples.
 - `tests/`: Extensive pytest suite.
+
+## Maintenance Instructions
+Whenever you make project changes (such as adding new features, modifying APIs, or refactoring), you **must** ensure the following are kept up-to-date:
+- `README.md`
+- `SKILLS.md`
+- Jupyter notebooks in the `notebooks/` directory
+- Test cases in the `tests/` directory

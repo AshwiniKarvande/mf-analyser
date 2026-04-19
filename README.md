@@ -45,7 +45,7 @@ uv run mfa funds
 uv run mfa search "mirae large cap"
 
 # View returns for a fund (all trailing periods)
-uv run mfa returns 118989
+uv run mfa returns 118825
 
 # Compare a fund with its top 5 category peers
 uv run mfa compare 122639 --limit 5
@@ -57,19 +57,19 @@ uv run mfa holdings 122639
 uv run mfa holdings-diff 122639
 
 # Run a SIP backtest (5000/month from Jan 2019)
-uv run mfa strategy sip 118989 --amount 5000 --from-date 2019-01-01
+uv run mfa strategy sip 118825 --amount 5000 --from-date 2019-01-01
 
 # Run a Lump Sum backtest
-uv run mfa strategy lumpsum 118989 --amount 100000 --from-date 2019-01-01
+uv run mfa strategy lumpsum 118825 --amount 100000 --from-date 2019-01-01
 
 # Value averaging
-uv run mfa strategy va 118989 --start-amount 5000 --growth-rate 1.0 --from-date 2020-01-01
+uv run mfa strategy va 118825 --start-amount 5000 --growth-rate 1.0 --from-date 2020-01-01
 
 # Momentum strategy (MA50 crossover MA200)
-uv run mfa strategy momentum 118989 --amount 100000 --fast 50 --slow 200
+uv run mfa strategy momentum 118825 --amount 100000 --fast 50 --slow 200
 
 # SIP with 20% stop-loss
-uv run mfa strategy stoploss 118989 --amount 5000 --stop-loss 20
+uv run mfa strategy stoploss 118825 --amount 5000 --stop-loss 20
 
 # Fetch Top 10 largest mutual fund schemes in India
 uv run mfa aum "Jan-Mar 2024" --top 10
@@ -88,11 +88,11 @@ uv run mfa aum "Jan-Mar 2024" --scheme "PPFAS" -n 50 --combine
 
 # Cache management
 uv run mfa cache list
-uv run mfa cache clear 118989
+uv run mfa cache clear 118825
 uv run mfa cache clear --all
 
 # Force refresh NAV data
-uv run mfa returns 118989 --refresh
+uv run mfa returns 118825 --refresh
 ```
 
 ### 3. Run Jupyter notebooks
@@ -114,16 +114,16 @@ Open:
 
 | Fund | Code | Category |
 |---|---|---|
-| Mirae Asset Large Cap Fund | 118989 | Large Cap |
+| Mirae Asset Large Cap Fund | 118825 | Large Cap |
 | PPFAS FlexiCap Fund | 122639 | Flexi Cap |
 | ICICI Pru Large Cap Fund | 120586 | Large Cap |
-| Nippon Multi-Cap Fund | 118825 | Multi Cap |
-| Kotak Midcap Fund | 120465 | Mid Cap |
-| HDFC Small Cap Fund | 118731 | Small Cap |
+| Nippon Multi-Cap Fund | 118650 | Multi Cap |
+| Kotak Midcap Fund | 119775 | Mid Cap |
+| HDFC Small Cap Fund | 130503 | Small Cap |
 | Nippon Small Cap Fund | 118778 | Small Cap |
 | UTI Nifty 50 Index Fund | 120716 | Index Fund |
-| UTI Nifty Next 50 Index Fund | 120684 | Index Fund |
-| ICICI Pru Nifty Bank Index Fund | 120620 | Index Fund |
+| UTI Nifty Next 50 Index Fund | 143341 | Index Fund |
+| ICICI Pru Nifty Bank Index Fund | 149858 | Index Fund |
 
 > **Note**: Scheme codes are for the **Direct Growth** variant. Use `mfa search <name>` to find Regular/IDCW variants.
 
